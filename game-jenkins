@@ -40,5 +40,39 @@ pipeline{
                 sh "npm install"
             }
         }
+        stage("OWASP FS SCAN"){
+            steps {
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DC'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+
+        }
+        stage('TRIVY FS SCAN') {
+            steps {
+                sh "trivy fs . > trivyfs.txt"
+            }
+        }
+        stage("Docker Build & Push"){
+            steps{
+                script{
+                   withDockerRegistry(credentialsId: 'dockerhub', toolName: 'docker'){   
+                       sh "docker build -t 2048 ."
+                       sh "docker tag 2048 varadudi7/2048:latest "
+                       sh "docker push varadudi7/2048:latest "
+                    }
+                }
+            }
+        }
+        stage("TRIVY"){
+            steps{
+                sh "trivy image varadudi7/2048:latest > trivy.txt" 
+            }
+        }
+        stage('Deploy to container'){
+            steps{
+                sh 'docker run -d --name 2048 -p 3000:3000 varadudi7/2048:latest'
+            }
+        }
+
     }
 }
